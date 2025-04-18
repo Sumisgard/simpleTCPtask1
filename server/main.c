@@ -13,10 +13,6 @@
 
 #include "stuff.h"
 
-#define PORT "4060"
-#define BACKLOG 10
-#define BUFF_SIZE 512
-
 int main(void)
 {
     int sockfd, new_fd; // listen on sock_fd, new connection on new_fd
@@ -36,7 +32,7 @@ int main(void)
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
-    hints.ai_flags = AI_PASSIVE; // use my IP
+    hints.ai_flags = AI_PASSIVE;
 
     if ((rv = getaddrinfo(NULL, PORT, &hints, &servinfo)) != 0)
     {
@@ -67,7 +63,7 @@ int main(void)
         break;
     }
 
-    freeaddrinfo(servinfo); // all done with this structure
+    
 
     if (p = NULL)
     {
@@ -92,11 +88,13 @@ int main(void)
 
     printf("server: waiting for connections...\n");
 
+    freeaddrinfo(servinfo); // all done with this structure
+
     while (1)
     {
         sin_size = sizeof their_addr;
         
-        if (new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size) == -1)
+        if ((new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size)) == -1)
         {
             perror("accept");
             continue;
@@ -109,12 +107,16 @@ int main(void)
         { 
             close(sockfd); // child doesn't need the listener
 
-            if (recv(new_fd, buff, BUFF_SIZE, 0) == -1)
+            if ((recv(new_fd, buff, BUFF_SIZE, 0)) == -1)
                 perror("resv");
 
+            printf("%s\n", buff);
+
             takeAction(buff, msg, BUFF_SIZE);
+
+            printf("%s\n", msg);
             
-            if (send(new_fd, msg, sizeof(msg), 0) == -1)
+            if ((send(new_fd, msg, sizeof(msg), 0)) == -1)
                 perror("send");
 
             close(new_fd);
