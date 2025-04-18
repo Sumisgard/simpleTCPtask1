@@ -14,6 +14,31 @@
 
 #include "stuff.h"
 
+void error(const char *msg)
+{
+    perror(msg);
+    exit(1);
+}
+
+void bindfirst(int *sockfd, struct addrinfo *servinfo, struct addrinfo **p, int yes)
+{
+    for(*p = servinfo; *p != NULL; *p = (*p)->ai_next) {
+        if ((*sockfd = socket((*p)->ai_family, (*p)->ai_socktype, (*p)->ai_protocol)) == -1)
+            error("server: socket");
+
+        if (setsockopt(*sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1)
+            error("setsockopt");
+
+        if (bind(*sockfd, (*p)->ai_addr, (*p)->ai_addrlen) == -1) {
+            close(*sockfd);
+            perror("server: bind");
+            continue;
+        }
+
+        break;
+    }
+}
+
 void sigchld_handler(int s)
 {
     // waitpid() might overwrite errno, so we save and restore it:

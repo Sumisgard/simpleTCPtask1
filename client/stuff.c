@@ -14,6 +14,32 @@
 
 #include "stuff.h"
 
+void error(const char *msg)
+{
+    perror(msg);
+    exit(1);
+}
+
+void connectfirst(int *sockfd, struct addrinfo *servinfo, struct addrinfo **p)
+{
+    for((*p) = servinfo; (*p) != NULL; (*p) = (*p)->ai_next) {
+        if ((*sockfd = socket((*p)->ai_family, (*p)->ai_socktype, (*p)->ai_protocol)) == -1) 
+        {
+            perror("client: socket");
+            continue;
+        }
+
+        if (connect(*sockfd, (*p)->ai_addr, (*p)->ai_addrlen) == -1) 
+        {
+            close(*sockfd);
+            perror("client: connect");
+            continue;
+        }
+
+        break;
+    }
+}
+
 void sigchld_handler(int s)
 {
     // waitpid() might overwrite errno, so we save and restore it:

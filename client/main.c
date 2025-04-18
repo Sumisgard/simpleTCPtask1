@@ -16,77 +16,38 @@
 int main(int argc, char *argv[])
 {
     int sockfd, numbytes;
-    char buff[BUFF_SIZE];
+    char buf[BUFF_SIZE];
     struct addrinfo hints, *servinfo, *p;
     int rv;
     char s[INET6_ADDRSTRLEN];
-    char msg[BUFF_SIZE];
 
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
-
-    if (argc != 2) 
+    if (argc != 2)
     {
-        fprintf(stderr,"usage: client hostname\n");
+        fprintf(stderr, "usage: ./client.out ip\n");
         exit(1);
     }
+
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
 
     if ((rv = getaddrinfo(argv[1], PORT, &hints, &servinfo)) != 0) 
     {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
-        return 1;
+        exit(1);
     }
 
-    for(p = servinfo; p != NULL; p = p->ai_next) {
-        if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)
-         {
-            perror("client: socket");
-            continue;
-        }
+    connectfirst(&sockfd, servinfo, &p);
 
-        if (connect(sockfd, p->ai_addr, p->ai_addrlen) == -1) 
-        {
-            close(sockfd);
-            perror("client: connect");
-            continue;
-        }
-
-        break;
-    }
-
-    if (p == NULL) {
-        fprintf(stderr, "client: failed to connect\n");
-        return 2;
-    }
-
-    inet_ntop(p->ai_family, get_in_addr((struct sockaddr *)p->ai_addr), s, sizeof s);
-    printf("client: connecting to %s\n", s);
+    if (p == NULL)
+        error("client: failed to connect");
 
     freeaddrinfo(servinfo);
 
-    while (1)
-    {   
-        printf("Enter a message: ");
-        scanf("%s", msg);
-
-        if (send(sockfd, msg, BUFF_SIZE, 0) == -1)
-        {
-            perror("send");
-            exit(1);
-        }
-
-        if ((numbytes = recv(sockfd, buff, BUFF_SIZE - 1, 0)) == -1)
-        {
-            perror("recv");
-            exit(1);
-        }
-
-        printf("Recieved message: %s\n", buff);
-
-        memset(buff, 0, BUFF_SIZE);
-        memset(msg, 0, BUFF_SIZE);
-    }
+    if ((numbytes = recv(sockfd, buf, BUFF_SIZE - 1, 0)) == -1)
+        error("recv");
+    
+    printf("Recieved message: %s\n", buf);
 
     return 0;
 }
