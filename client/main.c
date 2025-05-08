@@ -15,8 +15,8 @@
 
 int main(int argc, char *argv[])
 {
-    int sockfd, numbytes;
-    char buf[BUFF_SIZE];
+    int sockfd;
+    char msg[BUFF_SIZE];
     struct addrinfo hints, *servinfo, *p;
     int rv;
     char s[INET6_ADDRSTRLEN];
@@ -27,6 +27,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
+    memset(msg, 0, BUFF_SIZE);
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
@@ -44,10 +45,17 @@ int main(int argc, char *argv[])
 
     freeaddrinfo(servinfo);
 
-    if ((numbytes = recv(sockfd, buf, BUFF_SIZE - 1, 0)) == -1)
+    printf("Write a message:\n");
+
+    fgets(msg, BUFF_SIZE, stdin);
+
+    if (send(sockfd, msg, BUFF_SIZE, 0) == -1)
+        error("send");
+
+    if (recv(sockfd, msg, BUFF_SIZE, 0) == -1)
         error("recv");
     
-    printf("Recieved message: %s\n", buf);
+    printf("Recieved message:\n%s\n", msg);
 
     return 0;
 }

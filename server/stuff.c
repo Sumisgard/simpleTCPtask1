@@ -11,6 +11,7 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <ctype.h>
+#include <stdbool.h>
 
 #include "stuff.h"
 
@@ -39,14 +40,6 @@ void bindfirst(int *sockfd, struct addrinfo *servinfo, struct addrinfo **p, int 
     }
 }
 
-void sigchld_handler(int s)
-{
-    // waitpid() might overwrite errno, so we save and restore it:
-    int saved_errno = errno;
-    while(waitpid(-1, NULL, WNOHANG) > 0);
-    errno = saved_errno;
-}
-
 void *get_in_addr(struct sockaddr *sa)
 {
     if (sa->sa_family == AF_INET)
@@ -56,62 +49,78 @@ void *get_in_addr(struct sockaddr *sa)
     return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-void takeAction(const char *input, char *output, size_t size) {
-    if (input == NULL || output == NULL || size == 0) {
-        if (size > 0) output[0] = '\0';
+void takeAction(char* msg, size_t size) {
+    if (size == 0 || msg == NULL)
         return;
-    }
 
-    int max_len = 0, current_len = 0;
-    int start = -1, start_max = -1, end_max = -1;
+    size_t max_len = 0;
+    size_t current_len = 0;
+    bool in_word = false;
 
-    // Находим самое длинное слово
-    for (int i = 0;; ++i) {
-        char c = input[i];
-        if (c != '\0' && !isspace((unsigned char)c)) {
-            if (current_len == 0) start = i;
-            current_len++;
-        } else {
-            if (current_len > max_len) {
-                max_len = current_len;
-                start_max = start;
-                end_max = i - 1;
+    // Определяем длину самого длинного слова
+    for (const char *p = msg; p < msg + size && *p != '\0'; p++) {
+        if (*p != ' ') {
+            if (!in_word) {
+                in_word = true;
+                current_len = 1;
+            } else {
+                current_len++;
             }
-            current_len = 0;
-            start = -1;
+        } else {
+            if (in_word) {
+                if (current_len > max_len)
+                    max_len = current_len;
+                in_word = false;
+                current_len = 0;
+            }
         }
-        if (c == '\0') break;
     }
+    if (in_word && current_len > max_len)
+        max_len = current_len;
 
-    // Обработка вывода с удалением лишних пробелов
-    int last_was_space = 1;
-    size_t out_idx = 0;
+    // Удаляем первое самое длинное слово
+    char *read = msg;
+    char *write = msg;
+    bool removed = false;
+    bool first = true;
 
-    for (size_t i = 0; input[i] != '\0' && out_idx < size - 1; ++i) {
-        // Пропускаем символы самого длинного слова
-        if ((size_t)i >= (size_t)start_max && (size_t)i <= (size_t)end_max) {
+    while (read < msg + size && *read != '\0') {
+        // Пропускаем пробелы
+        while (read < msg + size && *read == ' ')
+            read++;
+
+        if (read >= msg + size || *read == '\0')
+            break;
+
+        // Начало слова
+        char *word_start = read;
+        size_t word_len = 0;
+
+        // Вычисляем длину слова
+        while (read < msg + size && *read != ' ' && *read != '\0') {
+            read++;
+            word_len++;
+        }
+
+        // Проверяем, нужно ли удалить это слово
+        if (word_len == max_len && !removed) {
+            removed = true;
             continue;
         }
 
-        char c = input[i];
-        if (isspace((unsigned char)c)) {
-            // Пропускаем пробелы в начале и повторяющиеся пробелы
-            if (!last_was_space && out_idx > 0) {
-                output[out_idx++] = ' ';
-                last_was_space = 1;
-            }
+        // Копируем слово, если не удалено
+        if (!first) {
+            *write++ = ' ';
         } else {
-            // Добавляем непробельные символы
-            output[out_idx++] = c;
-            last_was_space = 0;
+            first = false;
         }
+
+        memcpy(write, word_start, word_len);
+        write += word_len;
     }
 
-    // Удаляем последний пробел, если он есть
-    if (out_idx > 0 && output[out_idx - 1] == ' ') {
-        out_idx--;
+    // Добавляем нуль-терминатор, если возможно
+    if (write <= msg + size) {
+        *write = '\0';
     }
-
-    // Завершаем строку
-    output[out_idx] = '\0';
 }
